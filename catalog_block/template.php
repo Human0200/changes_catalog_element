@@ -139,14 +139,21 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
 
             $item_id = $arItem["ID"];
 
+            // if (isset($arParams['ID_FOR_TABS']) && $arParams['ID_FOR_TABS'] == 'Y') {
+            // 	$arItem["strMainID"] = $this->GetEditAreaId($arItem['ID'])."_".$arParams["FILTER_HIT_PROP"];
+            // } else {
+            // 	$arItem["strMainID"] = $this->GetEditAreaId($arItem['ID']);
+            // }
             $arItem["strMainID"] = $this->GetEditAreaId($arItem['ID']);
 
             $elementName = ((isset($arItem['IPROPERTY_VALUES']['ELEMENT_PAGE_TITLE']) && $arItem['IPROPERTY_VALUES']['ELEMENT_PAGE_TITLE']) ? $arItem['IPROPERTY_VALUES']['ELEMENT_PAGE_TITLE'] : $arItem['NAME']);
+            // use order button?
             $bOrderButton = ($arItem["PROPERTIES"]["FORM_ORDER"]["VALUE_XML_ID"] == "YES");
             $dataItem = TSolution::getDataItem($arItem);
 
             $article = $arItem['DISPLAY_PROPERTIES']['CML2_ARTICLE']['VALUE'];
 
+            //unset($arItem['OFFERS']); // get correct totalCount
             $totalCount = TSolution\Product\Quantity::getTotalCount([
                 'ITEM' => $arItem,
                 'PARAMS' => $arParams
@@ -372,12 +379,13 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                         >
                             <div class="catalog-block__info-top">
                                 <div class="catalog-block__info-inner">
+                                    <?// element price?>
                                     <?$arPriceConfig = [
                                         'PRICE_CODE' => $arParams['PRICE_CODE'],
                                         'PRICE_FONT' => '18 font_14--to-600',
                                         'APART_ECONOMY' => true,
                                         'PARAMS' => [
-                                            'SHOW_DISCOUNT_PERCENT1' => 'N',
+                                            'SHOW_DISCOUNT_PERCENT1' => 'N', // hide discount in js_item_detail.php
                                         ],
                                     ];?>
                                     <div class="js-popup-price" data-price-config='<?=str_replace('\'', '"', CUtil::PhpToJSObject($arPriceConfig, false, true))?>'>
@@ -385,6 +393,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                                             <?=$priceHtml;?>
                                         <?endif;?>
                                     </div>
+                                    <?// element title?>
                                     <div class="catalog-block__info-title linecamp-3 height-auto-t600 font_15 font_14--to-600">
                                         <?if ($bUseSchema):?>
                                             <link itemprop="url" href="<?=$arItem['DETAIL_PAGE_URL']?>">
@@ -394,6 +403,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                                     <?if ($bShowRating || strlen($status) || strlen($article)):?>
                                         <div class="catalog-block__info-tech">
                                             <div class="line-block line-block--12 flexbox--wrap js-popup-info">
+                                                <?// rating?>
                                                 <?if ($bShowRating):?>
                                                     <div class="line-block__item font_13 font_12--to-600">
                                                         <?=\TSolution\Product\Common::getRatingHtml([
@@ -402,6 +412,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                                                         ])?>
                                                     </div>
                                                 <?endif;?>
+                                                <?// status?>
                                                 <?if ((strlen($status) && !isset($arParams['HIDE_STATUS_BUTTON']))):?>
                                                     <div class="line-block__item font_13 font_12--to-600">
                                                         <?TSolution\Product\Quantity::show(
@@ -413,6 +424,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                                                         );?>
                                                     </div>
                                                 <?endif;?>
+                                                <?// article?>
                                                 <?if (strlen($article)):?>
                                                     <div class="line-block__item font_13 font_12--to-600 color_999">
                                                         <span class="article"><?=GetMessage('S_ARTICLE')?>&nbsp;<span
@@ -427,9 +439,8 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                                 </div>
                             </div>
                         </div>
-                        <?// ДОРАБОТКА: кнопки корзины для товаров без цены ?>
-                        <?
-                        $arBtnConfig = [
+                        <?// element btns?>
+                        <?$arBtnConfig = [
                             'BASKET_URL' => $basketURL,
                             'BASKET' => $bOrderViewBasket,
                             'ORDER_BTN' => $bOrderButton,
@@ -449,72 +460,17 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
                             $arBtnConfig['SHOW_MORE'] = true;
                             $arItem['CAN_BUY'] = 'N';
                             $totalCount = 0;
-                        }
-
-                        $currentItem = $arCurrentOffer ?: $arItem;
-                        $hasPrice = !empty($currentItem['PRICES']) || !empty($currentItem['MIN_PRICE']);
-
-                        if (!$hasPrice) {
-                            $itemId = $currentItem['ID'];
-                            $itemName = htmlspecialcharsbx($currentItem['NAME']);
-                            $ratio = $currentItem['CATALOG_MEASURE_RATIO'] ?: 1;
-                            $maxQuantity = $totalCount ?: 15;
-                            
-                            ob_start();
-                            ?>
-                            <div class="buy_block btn-actions__inner">
-                                <div class="buttons">
-                                    <div class="line-block line-block--gap line-block--gap-12 line-block--align-normal flexbox--direction-column">
-                                        <div class="line-block__item item-action-container">
-                                            <span class="item-action item-action--basket">
-                                                <span class="btn btn-default btn-sm btn-wide to_cart animate-load js-item-action has-ripple" 
-                                                    data-action="basket" 
-                                                    data-id="<?=$itemId?>" 
-                                                    data-ratio="<?=$ratio?>" 
-                                                    data-float_ratio="<?=is_double($ratio) ? '1' : '0'?>" 
-                                                    data-quantity="<?=$ratio?>" 
-                                                    data-max="<?=$maxQuantity?>" 
-                                                    data-bakset_div="bx_basket_div_<?=$itemId?>" 
-                                                    data-props="" 
-                                                    data-add_props="Y" 
-                                                    data-part_props="N" 
-                                                    data-empty_props="Y" 
-                                                    data-offers="<?=$arCurrentOffer ? 'Y' : ''?>" 
-                                                    title="В корзину" 
-                                                    data-title="В корзину" 
-                                                    data-title_added="В корзине" 
-                                                    data-notice="1">В корзину</span>
-                                            </span>
-                                            
-                                            <?if ($arParams['SHOW_BASKET_COUNTER']):?>
-                                                <div class="btn btn-default in_cart btn-sm">
-                                                    <div class="counter js-ajax">
-                                                        <span class="counter__action counter__action--minus"></span>
-                                                        <div class="counter__count-wrapper">
-                                                            <input type="text" value="<?=$ratio?>" class="counter__count" maxlength="6">
-                                                        </div>
-                                                        <span class="counter__action counter__action--plus" data-max="<?=$maxQuantity?>"></span>
-                                                    </div>
-                                                </div>
-                                            <?endif;?>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <?
-                            $arBasketConfig = ['HTML' => ob_get_clean()];
-                        } else {
-                            $arBasketConfig = TSolution\Product\Basket::getOptions(array_merge(
-                                $arBtnConfig,
-                                [
-                                    'ITEM' => $currentItem,
-                                    'IS_OFFER' => (boolean)$arCurrentOffer,
-                                    'PARAMS' => $arParams,
-                                    'TOTAL_COUNT' => $totalCount,
-                                ]
-                            ));
-                        }
-                        ?>
+                        }?>
+                        <?
+                        $arBasketConfig = TSolution\Product\Basket::getOptions(array_merge(
+                            $arBtnConfig,
+                            [
+                                'ITEM' => ($arCurrentOffer ? $arCurrentOffer : $arItem),
+                                'IS_OFFER' => (boolean)$arCurrentOffer,
+                                'PARAMS' => $arParams,
+                                'TOTAL_COUNT' => $totalCount,
+                            ]
+                        ));?>
                         <?if (
                             (($arCurrentOffer
                                 || (!$arCurrentOffer && $arBasketConfig['HTML'])
@@ -584,7 +540,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
             <? if ($sliderWrapperClasses): ?>
                 </div>
             <? endif; ?>
-            </div>
+            </div> <?//.js_append ajax_load block grid-list?>
 
             <? if ($bSlider): ?>
                 <div class="slider-nav slider-nav--no-auto-hide swiper-button-prev hide-600">
@@ -630,8 +586,8 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
     <?endif;?>
 
     <?if(!$bAjax):?>
-        </div>
-    </div>
+        </div> <?//.catalog-block?>
+    </div> <?//.catalog-items?>
     <?endif;?>
 
     <script>
@@ -641,6 +597,7 @@ $bBigDataMode = $arParams['BIG_DATA_MODE'] === 'Y';
         <script>typeof useOfferSelect === 'function' && useOfferSelect()</script>
     <?endif;?>
 
+    <!-- items-container -->
 <?elseif($arParams['IS_CATALOG_PAGE'] == 'Y' && !$bBigDataMode):?>
     <div class="no_goods catalog_block_view">
         <div class="no_products">
