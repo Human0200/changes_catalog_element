@@ -1009,65 +1009,227 @@ if ($arParams['USE_GIFTS_DETAIL'] === 'Y') {
                 $btnHtml = trim(ob_get_contents());
                 ob_end_clean();
                 ?>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        document.querySelectorAll('.js-add-to-basket').forEach(function(button) {
-                            button.addEventListener('click', function() {
-                                const itemId = this.getAttribute('data-item-id');
-                                const itemName = this.getAttribute('data-item-name');
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    checkBasketOnLoad();
+    
+    document.querySelectorAll('.js-add-to-basket').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            
+            const self = this;
+            const originalText = self.innerHTML;
+            const originalClasses = self.className;
+            
+            function restoreBtn() {
+                self.innerHTML = originalText;
+                self.disabled = false;
+                self.className = originalClasses;
+            }
 
-                                const self = this;
-                                const originalText = self.innerHTML;
+            self.innerHTML = 'Добавление...';
+            self.disabled = true;
+            self.className = originalClasses + ' is-loading';
 
-                                function restoreBtn() {
-                                    self.innerHTML = originalText;
-                                    self.disabled = false;
-                                    self.classList.remove('is-loading');
-                                }
-
-                                self.innerHTML = 'Добавление...';
-                                self.disabled = true;
-                                self.classList.add('is-loading');
-
-                                // Используем тот же AJAX endpoint, что и в вашей таблице
-                                BX.ajax({
-                                    url: '/local/ajax/add2basket.php',
-                                    method: 'POST',
-                                    dataType: 'json',
-                                    data: {
-                                        sessid: BX.bitrix_sessid(),
-                                        action: 'ADD2BASKET',
-                                        id: itemId,
-                                        quantity: 1
-                                    },
-                                    onsuccess: function(res) {
-                                        if (res && res.status === 'success') {
-                                            self.innerHTML = 'В корзине ✓';
-                                            self.classList.remove('btn-primary');
-                                            self.classList.add('btn-success');
-
-                                            // Можно обновить счетчик корзины, если нужно
-                                            if (typeof BX !== 'undefined' && BX.onCustomEvent) {
-                                                BX.onCustomEvent('OnBasketChange');
-                                            }
-                                        } else {
-                                            alert((res && res.message) ? res.message : 'Ошибка при добавлении товара');
-                                            restoreBtn();
-                                        }
-                                    },
-                                    onfailure: function() {
-                                        alert('Ошибка при добавлении товара');
-                                        restoreBtn();
-                                    },
-                                    onerror: function() {
-                                        alert('Ошибка при добавлении товара');
-                                        restoreBtn();
-                                    }
-                                });
-                            });
-                        });
-                    });
-                </script>
+            BX.ajax({
+                url: '/local/ajax/add2basket.php',
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    sessid: BX.bitrix_sessid(),
+                    action: 'ADD2BASKET',
+                    id: itemId,
+                    quantity: 1
+                },
+                onsuccess: function(res) {
+                    if (res && res.status === 'success') {
+                        removeLoadingClasses();
+                        replaceButtonWithCounter(itemId, 1);
+                        counter = document.querySelector('.header-cart__count');
+                        counter.innerText ++;
+                        if (typeof BX !== 'undefined' && BX.onCustomEvent) {
+                            BX.onCustomEvent('OnBasketChange');
+                        }
+                    } else {
+                        alert((res && res.message) ? res.message : 'Ошибка при добавлении товара');
+                        restoreBtn();
+                    }
+                },
+                onfailure: function() { 
+                    alert('Ошибка при добавлении товара'); 
+                    restoreBtn(); 
+                },
+                onerror: function() { 
+                    alert('Ошибка при добавлении товара'); 
+                    restoreBtn(); 
+                }
+            });
+        });
+    });
+    
+    function checkBasketOnLoad() {
+        const buttons = document.querySelectorAll('.js-add-to-basket');
+        if (!buttons.length) return;
+        
+        const itemId = buttons[0].getAttribute('data-item-id');
+        
+        BX.ajax({
+            url: '/local/ajax/check_basket.php',
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                sessid: BX.bitrix_sessid(),
+                action: 'CHECK_BASKET',
+                id: itemId
+            },
+            onsuccess: function(res) {
+                if (res && res.status === 'success' && res.inBasket) {
+                    removeLoadingClasses();
+                    replaceButtonWithCounter(itemId, res.quantity);
+                }
+            }
+        });
+    }
+    
+    function removeLoadingClasses() {
+        const containers = [
+            '.catalog-detail__cart-buttons',
+            '.catalog-detail__cart',
+            '.js-replace-btns',
+            '.js-config-btns'
+        ];
+        
+        containers.forEach(selector => {
+            const element = document.querySelector(selector);
+            if (element) {
+                element.className = '';
+            }
+        });
+    }
+    
+    function replaceButtonWithCounter(itemId, quantity) {
+        let cartButtons = document.querySelector('.catalog-detail__cart-buttons');
+        
+        if (!cartButtons) {
+            cartButtons = document.querySelector('.catalog-detail__cart');
+        }
+        
+        if (!cartButtons) {
+            cartButtons = document.querySelector('.js-replace-btns');
+        }
+        
+        if (!cartButtons) {
+            const button = document.querySelector('.js-add-to-basket');
+            if (button) {
+                cartButtons = button.closest('.catalog-detail__cart-buttons') || 
+                             button.closest('.catalog-detail__cart') ||
+                             button.closest('.js-replace-btns') ||
+                             button.parentElement;
+            }
+        }
+        
+        if (!cartButtons) return;
+        
+        cartButtons.innerHTML = `
+            <div class="btn btn-default btn-lg btn-wide" data-item-id="${itemId}">
+                <div class="counter js-ajax">
+                    <span class="counter__action counter__action--minus"></span>
+                    <div class="counter__count-wrapper">
+                        <input type="text" value="${quantity}" class="counter__count" maxlength="6" readonly>
+                    </div>
+                    <span class="counter__action counter__action--plus" data-max="15"></span>
+                </div>
+            </div>
+        `;
+        
+        initCounter(itemId);
+    }
+    
+    function initCounter(itemId) {
+        const counter = document.querySelector('.counter');
+        if (!counter) return;
+        
+        const minusBtn = counter.querySelector('.counter__action--minus');
+        const plusBtn = counter.querySelector('.counter__action--plus');
+        const input = counter.querySelector('.counter__count');
+        
+        if (!minusBtn || !plusBtn || !input) return;
+        
+        const newMinusBtn = minusBtn.cloneNode(true);
+        const newPlusBtn = plusBtn.cloneNode(true);
+        minusBtn.parentNode.replaceChild(newMinusBtn, minusBtn);
+        plusBtn.parentNode.replaceChild(newPlusBtn, plusBtn);
+        
+        newMinusBtn.addEventListener('click', function() {
+            updateCartQuantity(itemId, 'decrement', input);
+        });
+        
+        newPlusBtn.addEventListener('click', function() {
+            updateCartQuantity(itemId, 'increment', input);
+        });
+    }
+    
+    function updateCartQuantity(itemId, action, inputElement) {
+        const minusBtn = document.querySelector('.counter__action--minus');
+        const plusBtn = document.querySelector('.counter__action--plus');
+        const input = inputElement || document.querySelector('.counter__count');
+        
+        if (!minusBtn || !plusBtn || !input) return;
+        
+        const currentValue = input.value;
+        
+        if (minusBtn) minusBtn.style.pointerEvents = 'none';
+        if (plusBtn) plusBtn.style.pointerEvents = 'none';
+        if (input) input.disabled = true;
+        
+        BX.ajax({
+            url: '/local/ajax/update_basket.php',
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                sessid: BX.bitrix_sessid(),
+                action: 'UPDATE_BASKET',
+                id: itemId,
+                change: action
+            },
+            onsuccess: function(res) {
+                if (minusBtn) minusBtn.style.pointerEvents = '';
+                if (plusBtn) plusBtn.style.pointerEvents = '';
+                if (input) input.disabled = false;
+                
+                if (res && res.status === 'success') {
+                    input.value = res.quantity;
+                    
+                    if (typeof BX !== 'undefined' && BX.onCustomEvent) {
+                        BX.onCustomEvent('OnBasketChange');
+                    }
+                } else {
+                    input.value = currentValue;
+                    alert((res && res.message) ? res.message : 'Ошибка при обновлении количества');
+                }
+            },
+            onfailure: function() {
+                if (minusBtn) minusBtn.style.pointerEvents = '';
+                if (plusBtn) plusBtn.style.pointerEvents = '';
+                if (input) {
+                    input.disabled = false;
+                    input.value = currentValue;
+                }
+                alert('Ошибка при обновлении количества');
+            },
+            onerror: function() {
+                if (minusBtn) minusBtn.style.pointerEvents = '';
+                if (plusBtn) plusBtn.style.pointerEvents = '';
+                if (input) {
+                    input.disabled = false;
+                    input.value = currentValue;
+                }
+                alert('Ошибка при обновлении количества');
+            }
+        });
+    }
+});
+</script>
                 <div class="grid-list__item<?= ($btnHtml ? '' : ' hidden') ?>">
                     <div class="catalog-detail__buy-block catalog-detail__cell-block outer-rounded-x shadow" itemprop="offers" itemscope itemtype="http://schema.org/Offer" data-id="<?= $arResult['ID'] ?>" data-item="<?= $dataItem; ?>">
                         <link itemprop="availability" href="http://schema.org/<?= $totalCount ? 'InStock' : 'OutOfStock'; ?>" />
